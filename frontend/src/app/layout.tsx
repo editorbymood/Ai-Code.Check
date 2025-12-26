@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: "Next-gen code analysis platform.",
 };
 
+import SmoothScrollProvider from "@/components/SmoothScrollProvider";
+import ScrollProgress from "@/components/ScrollProgress";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -17,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} antialiased bg-black text-white min-h-screen`}>
-        {children}
+        <SmoothScrollProvider>
+          <ScrollProgress />
+          {children}
+        </SmoothScrollProvider>
       </body>
     </html>
   );
