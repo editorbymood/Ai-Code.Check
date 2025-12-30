@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { Shield, AlertCircle, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import GridBackground from '@/components/GridBackground';
@@ -12,6 +13,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const { login } = useAuth();
     const router = useRouter();
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -19,8 +21,7 @@ export default function Login() {
         setError('');
         try {
             const res = await axios.post('http://localhost:3001/api/auth/login', { email, password });
-            localStorage.setItem('token', res.data.token);
-            router.push('/dashboard');
+            login(res.data.token);
         } catch (err) {
             setError('Invalid credentials. Please try again.');
         }

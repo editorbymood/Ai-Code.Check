@@ -1,0 +1,26 @@
+{
+  "test_login.js": {
+    "path": "test_login.js",
+    "lastScore": 98.21428571428571,
+    "lastIssuesCount": 1,
+    "hash": "c1dc1f6af6a20d2a3dcdd1036fd945a1b5a2054d0075dfffe6650c888ef5860f",
+    "timestamp": "2025-12-28T17:30:00.585Z",
+    "trend": "stable"
+  },
+  "javascript": {
+    "path": "javascript",
+    "lastScore": 80.35714285714286,
+    "lastIssuesCount": 11,
+    "hash": "170f6766aaa0114620b5f3e66eb14eb14aab8efe3dbc771716f396cd3f122858",
+    "timestamp": "2025-12-30T18:57:22.083Z",
+    "trend": "stable"
+  },
+  "js": {
+    "path": "js",
+    "lastScore": 78.21428571428571,
+    "lastIssuesCount": 12,
+    "hash": "4bc08d041ae242c494e43bb37f9507ed5100591ce66b4999d9f1f6cd5b1079d2",
+    "timestamp": "2025-12-30T19:00:15.484Z",
+    "trend": "regression"
+  }
+}

@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
+import { env } from '../config/env';
+import { AppError } from '../utils/AppError';
+
+// JWT_SECRET is now guaranteed by env.ts
 
 export interface AuthRequest extends Request {
     user?: {
@@ -15,10 +18,14 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) return res.sendStatus(401);
+    if (!token) {
+        return next(new AppError('No token provided', 401));
+    }
 
-    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-        if (err) return res.sendStatus(403);
+    jwt.verify(token, env.JWT_SECRET, (err: any, user: any) => {
+        if (err) {
+            return next(new AppError('Invalid or expired token', 403));
+        }
         (req as AuthRequest).user = user;
         next();
     });

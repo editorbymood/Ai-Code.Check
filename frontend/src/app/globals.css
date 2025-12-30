@@ -1,30 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  /* Premium Minimal Dark Theme (Zinc/Slate inspired) */
-  --background: #050505;
-  /* Deepest black */
-  --foreground: #fafafa;
-  --primary: #8b5cf6;
-  --primary-foreground: #ffffff;
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  --accent: #0ea5e9;
-  --muted: #a1a1aa;
-  --border: #27272a;
+  /* Premium Minimal Dark Theme (Deep Space / Nebula inspired) */
+  --background: #000000;
+  /* True Black for depth */
+  --foreground: #ffffff;
 
-  /* Glass Effect Variables */
+  --primary: #6366f1;
+  /* Indigo 500 */
+  --primary-foreground: #ffffff;
+
+  --secondary: #111113;
+  /* Zinc 925 - slightly lighter than black */
+  --secondary-foreground: #fafafa;
+
+  --accent: #38bdf8;
+  /* Sky 400 */
+  --muted: #a1a1aa;
+  /* Zinc 400 */
+  --border: #27272a;
+  /* Zinc 800 */
+
+  /* Enhanced Glass Effect Variables */
   --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  /* Crisp border */
+  --glass-bg: rgba(20, 20, 25, 0.6);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
 }
 
 html {
-    scroll-behavior: smooth;
+  /* scroll-behavior: smooth; <-- REMOVED: Conflicts with Lenis */
 }
 
 body {
   background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', sans-serif;
   font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -32,7 +43,7 @@ body {
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
   }
 
   .glass-card {
@@ -44,36 +55,28 @@ body {
   }
 
   .glass-panel {
-    background: rgba(10, 10, 12, 0.6);
+    background: rgba(10, 10, 12, 0.7);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border-bottom: 1px solid var(--glass-border);
   }
 
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 5px;
+  /* Smooth scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-track {
+  ::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb {
+  ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border-radius: 3px;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
-  }
-
-  .animate-scroll {
-    animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
-  }
-  
-  @keyframes scroll {
-    to {
-      transform: translate(calc(-50% - 0.5rem));
-    }
   }
 }

@@ -24,6 +24,11 @@ class ASTAgent extends baseAgent_1.BaseAgent {
     }
     mockAnalyze(code) {
         return __awaiter(this, void 0, void 0, function* () {
+            return this.analyze(code);
+        });
+    }
+    analyze(code) {
+        return __awaiter(this, void 0, void 0, function* () {
             const issues = [];
             let score = 100;
             try {
@@ -35,30 +40,32 @@ class ASTAgent extends baseAgent_1.BaseAgent {
                 (0, traverse_1.default)(ast, {
                     // 1. Dangerous Functions & Memory Leaks
                     CallExpression(path) {
-                        var _a;
-                        // @ts-ignore
-                        const callee = path.node.callee;
+                        const node = path.node;
+                        const callee = node.callee;
                         // Eval
-                        // @ts-ignore
-                        if (callee.name === 'eval') {
+                        if (callee.type === 'Identifier' && callee.name === 'eval') {
                             issues.push({ severity: 'critical', type: 'security', description: 'Usage of eval() detected.', suggestion: 'Remove eval().' });
                             score -= 30;
                         }
-                        // innerHTML
-                        // @ts-ignore
-                        if (callee.type === 'MemberExpression' && callee.property.name === 'innerHTML') {
-                            issues.push({ severity: 'high', type: 'security', description: 'Direct assignment to innerHTML.', suggestion: 'Use textContent.' });
-                            score -= 15;
-                        }
                         // Memory Leak: addEventListener
-                        // @ts-ignore
-                        if (((_a = callee.property) === null || _a === void 0 ? void 0 : _a.name) === 'addEventListener') {
+                        if (callee.type === 'MemberExpression' &&
+                            callee.property.type === 'Identifier' &&
+                            callee.property.name === 'addEventListener') {
                             issues.push({ severity: 'minor', type: 'memory_leak', description: 'Event listener added.', suggestion: 'Verify cleanup.' });
                         }
                         // Memory Leak: setInterval
-                        // @ts-ignore
-                        if (callee.name === 'setInterval') {
+                        if (callee.type === 'Identifier' && callee.name === 'setInterval') {
                             issues.push({ severity: 'medium', type: 'memory_leak', description: 'setInterval detected.', suggestion: 'Ensure clearInterval.' });
+                        }
+                    },
+                    // innerHTML should be checked in AssignmentExpression
+                    AssignmentExpression(path) {
+                        const left = path.node.left;
+                        if (left.type === 'MemberExpression' &&
+                            left.property.type === 'Identifier' &&
+                            left.property.name === 'innerHTML') {
+                            issues.push({ severity: 'high', type: 'security', description: 'Direct assignment to innerHTML.', suggestion: 'Use textContent.' });
+                            score -= 15;
                         }
                     },
                     // 2. Empty Blocks
@@ -69,11 +76,9 @@ class ASTAgent extends baseAgent_1.BaseAgent {
                     },
                     // 3. Unreachable Code
                     ReturnStatement(path) {
-                        // @ts-ignore
                         const container = path.container;
-                        // @ts-ignore
                         if (Array.isArray(container)) {
-                            // @ts-ignore
+                            // key is usually number for arrays, but can be string for objects. In BlockStatement body it is array.
                             const index = path.key;
                             if (typeof index === 'number' && index < container.length - 1) {
                                 issues.push({ severity: 'minor', type: 'dead_code', description: 'Unreachable code after return.', suggestion: 'Remove.' });
@@ -91,11 +96,18 @@ class ASTAgent extends baseAgent_1.BaseAgent {
                                 complexity++;
                                 // Calculate Nesting Depth
                                 let depth = 0;
-                                let current = innerPath;
                                 // @ts-ignore
-                                while (current.parentPath && (current.parentPath.isForStatement || current.parentPath.isWhileStatement || current.parentPath.isIfStatement)) {
-                                    depth++;
-                                    // @ts-ignore
+                                let current = innerPath.parentPath;
+                                while (current) {
+                                    if (current.isForStatement() ||
+                                        current.isWhileStatement() ||
+                                        current.isDoWhileStatement() ||
+                                        current.isIfStatement()) {
+                                        depth++;
+                                    }
+                                    // Stop if we hit the function implementation itself
+                                    if (current.isFunction())
+                                        break;
                                     current = current.parentPath;
                                 }
                                 if (depth > maxNesting)

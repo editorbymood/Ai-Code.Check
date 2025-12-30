@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
@@ -7,6 +8,7 @@ import Magnetic from '@/components/MagneticButton';
 
 export default function Navbar() {
     const { scrollY } = useScroll();
+    const { isAuthenticated, logout } = useAuth();
     const [hidden, setHidden] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -82,21 +84,44 @@ export default function Navbar() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-3 pl-2 md:pl-4 md:border-l border-white/10">
-                        <Link
-                            href="/auth/login"
-                            className="hidden md:block text-xs font-medium text-gray-400 hover:text-white transition-colors"
-                        >
-                            Sign In
-                        </Link>
-                        <Magnetic>
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="h-8 px-4 rounded-full bg-white text-black text-xs font-bold hover:bg-gray-200 transition-colors flex items-center shadow-lg hover:shadow-cyan-500/20"
-                            >
-                                Get Started
-                            </motion.button>
-                        </Magnetic>
+                        {isAuthenticated ? (
+                            <>
+                                <Link
+                                    href="/dashboard"
+                                    className="hidden md:block text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Dashboard
+                                </Link>
+                                <Magnetic>
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={logout}
+                                        className="h-8 px-4 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-bold hover:bg-red-500 hover:text-white transition-all flex items-center shadow-lg hover:shadow-red-500/20"
+                                    >
+                                        Logout
+                                    </motion.button>
+                                </Magnetic>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/auth/login"
+                                    className="hidden md:block text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Sign In
+                                </Link>
+                                <Magnetic>
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className="h-8 px-4 rounded-full bg-white text-black text-xs font-bold hover:bg-gray-200 transition-colors flex items-center shadow-lg hover:shadow-cyan-500/20"
+                                    >
+                                        Get Started
+                                    </motion.button>
+                                </Magnetic>
+                            </>
+                        )}
                         <button
                             className="md:hidden text-white"
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -122,7 +147,10 @@ export default function Navbar() {
                             { name: 'Methodology', path: '/methodology' },
                             { name: 'Pricing', path: '/pricing' },
                             { name: 'Blog', path: '/blog' },
-                            { name: 'Sign In', path: '/auth/login' }
+                            ...(isAuthenticated
+                                ? [{ name: 'Dashboard', path: '/dashboard' }]
+                                : [{ name: 'Sign In', path: '/auth/login' }]
+                            )
                         ].map((item, i) => (
                             <motion.div
                                 key={item.name}
@@ -139,6 +167,23 @@ export default function Navbar() {
                                 </Link>
                             </motion.div>
                         ))}
+                        {isAuthenticated && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                            >
+                                <button
+                                    onClick={() => {
+                                        logout();
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    className="text-2xl font-semibold text-red-500 hover:text-red-400"
+                                >
+                                    Logout
+                                </button>
+                            </motion.div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>

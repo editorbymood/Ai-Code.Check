@@ -15,10 +15,6 @@ export default function SettingsPage() {
     const [newKeyName, setNewKeyName] = useState('');
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
     const fetchData = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -34,6 +30,11 @@ export default function SettingsPage() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+    }, []);
 
     const handleUpdateProfile = async () => {
         setSaving(true);

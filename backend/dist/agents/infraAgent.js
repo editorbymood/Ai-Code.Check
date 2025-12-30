@@ -17,11 +17,11 @@ class InfraAgent extends baseAgent_1.BaseAgent {
         this.name = 'INFRASTRUCTURE';
         this.systemPrompt = "You are a DevOps Engineer reviewing Dockerfiles and Kubernetes manifests...";
     }
-    analyze(code, language) {
+    analyze(code_1) {
         const _super = Object.create(null, {
             analyze: { get: () => super.analyze }
         });
-        return __awaiter(this, void 0, void 0, function* () {
+        return __awaiter(this, arguments, void 0, function* (code, language = '') {
             // Override analyze to handle non-js files if needed, but BaseAgent MockAnalyze logic assumes 'code' string
             // We will add specific heuristics for Dockerfile/YAML
             if (language.toLowerCase() !== 'dockerfile' && language.toLowerCase() !== 'yaml' && language.toLowerCase() !== 'yml') {

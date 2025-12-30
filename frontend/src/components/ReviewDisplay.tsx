@@ -4,9 +4,18 @@ import { cn } from '@/lib/utils';
 import { DiffEditor, Editor } from '@monaco-editor/react';
 
 // Updated types to support both Legacy Single-File and Enterprise Multi-File
+interface Issue {
+    line: number;
+    type: string;
+    description: string;
+    suggestion: string;
+    severity: string;
+}
+
+// Updated types to support both Legacy Single-File and Enterprise Multi-File
 interface AgentResult {
     type: string;
-    issues: any[];
+    issues: Issue[];
     score: number;
     summary: string;
     refactoredCode?: string;
@@ -33,7 +42,7 @@ interface ReviewDisplayProps {
 }
 
 const SeverityBadge = ({ severity }: { severity: string }) => {
-    const colors: any = {
+    const colors: Record<string, string> = {
         critical: 'bg-red-500/10 text-red-500 border-red-500/20',
         major: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
         minor: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -178,7 +187,7 @@ export const ReviewDisplay: React.FC<ReviewDisplayProps> = ({ review }) => {
                                         theme="vs-dark"
                                         options={{ readOnly: true, minimap: { enabled: false }, fontSize: 13 }}
                                         onMount={(editor, monaco) => {
-                                            const markers = result.issues.map((issue: any) => ({
+                                            const markers = result.issues.map((issue: Issue) => ({
                                                 startLineNumber: issue.line || 1,
                                                 startColumn: 1,
                                                 endLineNumber: issue.line || 1,
@@ -193,7 +202,7 @@ export const ReviewDisplay: React.FC<ReviewDisplayProps> = ({ review }) => {
                                     />
                                     {/* List View below for accessibility/details */}
                                     <div className="h-48 overflow-y-auto border-t border-neutral-800 bg-neutral-950 p-4">
-                                        {result.issues.map((issue: any, idx: number) => (
+                                        {result.issues.map((issue: Issue, idx: number) => (
                                             <div key={idx} className="mb-2 text-sm text-neutral-400 border-l-2 border-cyan-500 pl-2">
                                                 <span className="font-bold text-white">L{issue.line || '?'}:</span> {issue.description}
                                             </div>

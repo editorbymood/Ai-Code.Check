@@ -4,7 +4,7 @@ export class InfraAgent extends BaseAgent {
     name = 'INFRASTRUCTURE';
     systemPrompt = "You are a DevOps Engineer reviewing Dockerfiles and Kubernetes manifests...";
 
-    async analyze(code: string, language: string): Promise<AgentResult> {
+    async analyze(code: string, language: string = ''): Promise<AgentResult> {
         // Override analyze to handle non-js files if needed, but BaseAgent MockAnalyze logic assumes 'code' string
         // We will add specific heuristics for Dockerfile/YAML
         if (language.toLowerCase() !== 'dockerfile' && language.toLowerCase() !== 'yaml' && language.toLowerCase() !== 'yml') {

@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from 'react';
 import React, { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/ui/Sidebar';
 import GridBackground from '@/components/GridBackground';
@@ -7,7 +8,7 @@ import { GitBranch, Wifi } from 'lucide-react';
 import axios from 'axios';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-export default function IntegrationsPage() {
+function IntegrationsContent() {
     const [integrations, setIntegrations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const searchParams = useSearchParams();
@@ -84,8 +85,8 @@ export default function IntegrationsPage() {
                                         onClick={() => !connected && handleConnect(provider.id)}
                                         disabled={connected}
                                         className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${connected
-                                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default"
-                                                : "bg-white/5 text-gray-300 hover:bg-white/10"
+                                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default"
+                                            : "bg-white/5 text-gray-300 hover:bg-white/10"
                                             }`}>
                                         {connected ? "Connected" : "Connect"}
                                     </button>
@@ -96,5 +97,13 @@ export default function IntegrationsPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function IntegrationsPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center text-white">Loading Integrations...</div>}>
+            <IntegrationsContent />
+        </Suspense>
     );
 }

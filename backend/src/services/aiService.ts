@@ -52,67 +52,116 @@ JSON Structure:
 `;
 
 export const aiService = {
-    generateReview: async (code: string, languageHint?: string): Promise<CodeReviewResponse> => {
-        // NOTE: This uses a proprietary LLM API. 
-        // Since I don't have a real API key in the prompt, I will assume the user has one or I would use a mock if this was a test.
-        // However, the prompt asks for "LLM integration". Use a standard placeholder for OpenAI or similar.
-        // If running in Antigravity environment, we can't make external calls without implicit permission or proxy.
-        // I will write the code for OpenAI API.
+    generateReview: async (code: string, systemPrompt?: string): Promise<CodeReviewResponse> => {
+        const prompt = systemPrompt || SYSTEM_PROMPT;
 
-        // For DEMO purposes, if no API key is set, I'll return a mock response so the UI works immediately for the user to see.
-        if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-            console.warn("No API Key found. Returning mock response.");
-            return mockReview(code);
+        // 1. Google Gemini (Priority)
+        if (process.env.GEMINI_API_KEY) {
+            try {
+                // Determine model based on availability (gemini-pro is standard)
+                const model = 'gemini-pro';
+
+                // Construct Gemini Prompt structure
+                // Gemini is strict about JSON, so we emphasize it in the text.
+                const finalPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON matching the structure. \n\nCODE TO REVIEW:\n\n${code}`;
+
+                const response = await axios.post(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+                    {
+                        contents: [{
+                            parts: [{
+                                text: finalPrompt
+                            }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.2,
+                            // responseMimeType: "application/json" // Gemini 1.5 Pro supports this, but let's be safe for older keys
+                        }
+                    },
+                    { headers: { 'Content-Type': 'application/json' } }
+                );
+
+                const textResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!textResponse) throw new Error("Empty response from Gemini");
+
+                return parseLLMResponse(textResponse);
+
+            } catch (error: any) {
+                console.error("Gemini API Failed", error.response?.data || error.message);
+                if (!process.env.OPENAI_API_KEY) throw error; // If no fallback, throw
+                // Fallback to OpenAI if available...
+            }
         }
 
-        try {
-            // Example implementation for OpenAI
-            const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-                model: 'gpt-4o', // or gpt-4-turbo
-                messages: [
-                    { role: 'system', content: SYSTEM_PROMPT },
-                    { role: 'user', content: `Review this code:\n\n${code}` }
-                ],
-                temperature: 0.2,
-                response_format: { type: "json_object" }
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+        // 2. OpenAI (Fallback or Primary)
+        if (process.env.OPENAI_API_KEY) {
+            try {
+                const response = await axios.post(
+                    'https://api.openai.com/v1/chat/completions',
+                    {
+                        model: 'gpt-4o', // or gpt-3.5-turbo if cost is concern, but gpt-4o is standard now
+                        messages: [
+                            { role: 'system', content: prompt },
+                            { role: 'user', content: `Review this code:\n\n${code}` }
+                        ],
+                        temperature: 0.2,
+                        response_format: { type: "json_object" }
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
 
-            const content = response.data.choices[0].message.content;
-            return JSON.parse(content);
+                const content = response.data.choices[0].message.content;
+                return JSON.parse(content);
 
-        } catch (error) {
-            console.error("LLM Call Failed", error);
-            throw error;
+            } catch (error: any) {
+                console.error("OpenAI API Failed", error.response?.data || error.message);
+                // Fallback to mock
+            }
         }
+
+        console.warn("No valid API keys found or APIs failed. Using Mock Data.");
+        return mockReview(code);
     }
 };
 
+function parseLLMResponse(text: string): CodeReviewResponse {
+    try {
+        // Clean markdown backticks if present
+        let cleanText = text.trim();
+        if (cleanText.startsWith("```json")) {
+            cleanText = cleanText.slice(7);
+        } else if (cleanText.startsWith("```")) {
+            cleanText = cleanText.slice(3);
+        }
+        if (cleanText.endsWith("```")) {
+            cleanText = cleanText.slice(0, -3);
+        }
+        return JSON.parse(cleanText);
+    } catch (e) {
+        console.error("Failed to parse LLM JSON", e);
+        throw new Error("Invalid JSON response from AI");
+    }
+}
+
 function mockReview(code: string): CodeReviewResponse {
     return {
-        summary: "This is a mock review because no API Key was configured. The code looks like a basic snippet.",
-        language: "JavaScript (Mock)",
+        summary: "This is a mock review. Configure OPENAI_API_KEY or GEMINI_API_KEY in backend/.env for real analysis.",
+        language: "TypeScript (Mock)",
         qualityScore: 75,
         issues: [
             {
-                type: "style",
+                type: "maintainability",
                 severity: "minor",
-                line: 1,
-                description: "Variable 'x' has a non-descriptive name.",
-                suggestion: "Rename 'x' to something more meaningful like 'userCount'."
-            },
-            {
-                type: "bug",
-                severity: "major",
-                line: 5,
-                description: "Potential infinite loop if condition is never met.",
-                suggestion: "Add a break condition or ensure state updates."
+                description: "This is a placeholder result.",
+                suggestion: "Add API keys to enable the real AI engine.",
+                line: 1
             }
         ],
-        refactoredCode: `// Refactored Code (Mock)\n${code}\n// Fixed issues...`
+        refactoredCode: code
     };
 }

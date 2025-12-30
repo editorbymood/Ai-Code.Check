@@ -7,8 +7,14 @@ export default function SmoothScrollProvider({
     children: React.ReactNode;
 }) {
     return (
-        <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothWheel: true }}>
-            {children}
+        <ReactLenis root options={{
+            lerp: 0.1,
+            duration: 1.2,
+            smoothWheel: true,
+            wheelMultiplier: 1.0,
+        }}>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {children as any}
         </ReactLenis>
     );
 }

@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { queueService } from '../services/queueService';
 import { AuthRequest } from '../middleware/auth';
+import { agentOrchestrator } from '../agents/orchestrator';
+import { socketServer } from '../services/socketServer';
 
 const prisma = new PrismaClient();
 
@@ -9,84 +11,105 @@ export interface MulterRequest extends Request {
     file?: Express.Multer.File;
 }
 
+// Removed duplicate import
+
 export const reviewCode = async (req: Request, res: Response) => {
     try {
         const { code, language, mode } = req.body;
         const authReq = req as AuthRequest;
 
+        // Use user ID or a temporary session ID
+        const userId = authReq.user?.userId || 'anon';
+
         if (!code) {
             return res.status(400).json({ error: 'Code is required' });
         }
 
-        // Mock Analysis Logic (to simulate "Real" engine)
-        const mockResults = [];
-        let score = 85;
+        console.log(`[ReviewController] Starting real analysis for user ${userId}`);
 
-        // 1. Security Check
-        if (code.includes('password') || code.includes('secret') || code.includes('token')) {
-            score -= 20;
-            mockResults.push({
-                type: 'SECURITY',
-                score: 60,
-                summary: 'Potential hardcoded credentials detected.',
-                issues: [{
-                    line: 1, // Simple approximation
-                    severity: 'critical',
-                    description: 'Hardcoded sensitive information detected',
-                    suggestion: 'Use environment variables (process.env.VAR)'
-                }]
-            });
-        } else {
-            mockResults.push({
-                type: 'SECURITY',
-                score: 95,
-                summary: 'No obvious security vulnerabilities found.',
-                issues: []
-            });
-        }
-
-        // 2. Refactor Suggestion
-        const refactoredCode = code.replace(/var /g, 'const ').replace(/function /g, 'const ').replace(/\(([^)]+)\) \{/g, ' = ($1) => {') + '\n // Optimized by Devoxa';
-
-        mockResults.push({
-            type: 'REFACTOR',
-            score: 90,
-            summary: 'Modern ES6+ syntax improvements available.',
-            refactoredCode: refactoredCode,
-            issues: []
-        });
-
-        // Create Completed Review Record
+        // 1. Create a Pending Review Record
         const review = await prisma.review.create({
             data: {
                 userId: authReq.user?.userId,
                 codeSnapshot: code.substring(0, 100) + "...",
-                status: 'COMPLETED', // Immediate completion
-                score: score,
-                summary: 'Analysis complete. Issues found in security and style.',
-                agentOutputs: {
-                    create: mockResults.map(r => ({
-                        agentType: r.type, // Added required field
-                        content: JSON.stringify(r)
-                    }))
-                }
+                status: 'ANALYZING',
+                score: 0,
+                summary: 'Initializing analysis engines...'
             }
         });
 
-        // Return the full result immediately for valid UX
+        // 2. Return the review ID immediately so client can subscribe
         res.json({
-            message: 'Analysis complete',
+            message: 'Analysis started',
             reviewId: review.id,
-            status: 'COMPLETED',
-            qualityScore: score,
-            summary: review.summary,
-            results: mockResults,
-            originalCode: code
+            status: 'ANALYZING'
         });
 
+        // 3. Run Analysis Asynchronously
+        (async () => {
+            try {
+                // Notify Start
+                socketServer.emitToReview(review.id, 'analysis:start', { reviewId: review.id });
+
+                // We need to modify AgentOrchestrator to support callbacks or event emission
+                // For now, we wrap the call and simulate "streaming" via the orchestrator returning promises?
+                // Actually, let's inject a progress callback into runAll
+
+                // Hack: We will modify orchestrator in the next step to accept a callback.
+                // For now, let's just emit "Complete" after it's done.
+
+                // Import moved to top level in previous step
+                const agentResults = await agentOrchestrator.runAll(
+                    code,
+                    'snippet.ts',
+                    mode || 'STANDARD',
+                    (progress) => {
+                        socketServer.emitToReview(review.id, 'analysis:progress', progress);
+                    }
+                );
+
+                // Calculate aggregate score
+                const totalScore = agentResults.reduce((acc: number, r: any) => acc + r.score, 0);
+                const avgScore = Math.round(totalScore / (agentResults.length || 1));
+
+                // Generate Summary
+                const metaResult = agentResults.find((r: any) => r.type === 'META_ANALYSIS');
+                const summary = metaResult ? metaResult.summary : `Analysis complete. Quality Score: ${avgScore}/100`;
+
+                // Update DB
+                await prisma.review.update({
+                    where: { id: review.id },
+                    data: {
+                        status: 'COMPLETED',
+                        score: avgScore,
+                        summary: summary,
+                        agentOutputs: {
+                            create: agentResults.map((r: any) => ({
+                                agentType: r.type,
+                                content: JSON.stringify(r)
+                            }))
+                        }
+                    }
+                });
+
+                // Emit Completion
+                socketServer.emitToReview(review.id, 'analysis:complete', {
+                    reviewId: review.id,
+                    score: avgScore,
+                    summary,
+                    results: agentResults
+                });
+
+            } catch (err) {
+                console.error("Async Analysis Failed:", err);
+                socketServer.emitToReview(review.id, 'analysis:error', { message: 'Internal Engine Failure' });
+                await prisma.review.update({ where: { id: review.id }, data: { status: 'FAILED' } });
+            }
+        })();
+
     } catch (error) {
-        console.error('Error processing review:', error);
-        res.status(500).json({ error: 'Failed to process review' });
+        console.error('Error processing review request:', error);
+        res.status(500).json({ error: 'Failed to initiate review' });
     }
 };
 

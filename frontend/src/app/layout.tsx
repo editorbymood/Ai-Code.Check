@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import ScrollProgress from "@/components/ScrollProgress";
+import { AuthProvider } from "@/context/AuthContext";
+import PageTransition from "@/components/PageTransition";
 
 export default function RootLayout({
   children,
@@ -21,8 +23,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} antialiased bg-black text-white min-h-screen`}>
         <SmoothScrollProvider>
-          <ScrollProgress />
-          {children}
+          <AuthProvider>
+            <ScrollProgress />
+            <PageTransition>
+              {children}
+            </PageTransition>
+          </AuthProvider>
         </SmoothScrollProvider>
       </body>
     </html>

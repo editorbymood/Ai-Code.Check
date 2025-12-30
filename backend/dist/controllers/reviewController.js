@@ -12,35 +12,90 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.submitFeedback = exports.generateCommitMessage = exports.getRefactor = exports.getScore = exports.getFileDetails = exports.getReviewStatus = exports.uploadRepo = exports.reviewCode = void 0;
 const client_1 = require("@prisma/client");
 const queueService_1 = require("../services/queueService");
+const orchestrator_1 = require("../agents/orchestrator");
+const socketServer_1 = require("../services/socketServer");
 const prisma = new client_1.PrismaClient();
+// Removed duplicate import
 const reviewCode = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const { code, language, mode } = req.body;
         const authReq = req;
+        // Use user ID or a temporary session ID
+        const userId = ((_a = authReq.user) === null || _a === void 0 ? void 0 : _a.userId) || 'anon';
         if (!code) {
             return res.status(400).json({ error: 'Code is required' });
         }
-        // Create Review Record
+        console.log(`[ReviewController] Starting real analysis for user ${userId}`);
+        // 1. Create a Pending Review Record
         const review = yield prisma.review.create({
             data: {
-                userId: (_a = authReq.user) === null || _a === void 0 ? void 0 : _a.userId,
+                userId: (_b = authReq.user) === null || _b === void 0 ? void 0 : _b.userId,
                 codeSnapshot: code.substring(0, 100) + "...",
-                status: 'QUEUED',
-                summary: mode === 'DEBATE' ? 'Debate Mode: Attacker vs Defender' : undefined
+                status: 'ANALYZING',
+                score: 0,
+                summary: 'Initializing analysis engines...'
             }
         });
-        // Add to Queue
-        yield queueService_1.queueService.addJob(review.id, code, language, mode);
+        // 2. Return the review ID immediately so client can subscribe
         res.json({
-            message: 'Review queued',
+            message: 'Analysis started',
             reviewId: review.id,
-            status: 'QUEUED'
+            status: 'ANALYZING'
         });
+        // 3. Run Analysis Asynchronously
+        (() => __awaiter(void 0, void 0, void 0, function* () {
+            try {
+                // Notify Start
+                socketServer_1.socketServer.emitToReview(review.id, 'analysis:start', { reviewId: review.id });
+                // We need to modify AgentOrchestrator to support callbacks or event emission
+                // For now, we wrap the call and simulate "streaming" via the orchestrator returning promises?
+                // Actually, let's inject a progress callback into runAll
+                // Hack: We will modify orchestrator in the next step to accept a callback.
+                // For now, let's just emit "Complete" after it's done.
+                // Import moved to top level in previous step
+                const agentResults = yield orchestrator_1.agentOrchestrator.runAll(code, 'snippet.ts', mode || 'STANDARD', (progress) => {
+                    socketServer_1.socketServer.emitToReview(review.id, 'analysis:progress', progress);
+                });
+                // Calculate aggregate score
+                const totalScore = agentResults.reduce((acc, r) => acc + r.score, 0);
+                const avgScore = Math.round(totalScore / (agentResults.length || 1));
+                // Generate Summary
+                const metaResult = agentResults.find((r) => r.type === 'META_ANALYSIS');
+                const summary = metaResult ? metaResult.summary : `Analysis complete. Quality Score: ${avgScore}/100`;
+                // Update DB
+                yield prisma.review.update({
+                    where: { id: review.id },
+                    data: {
+                        status: 'COMPLETED',
+                        score: avgScore,
+                        summary: summary,
+                        agentOutputs: {
+                            create: agentResults.map((r) => ({
+                                agentType: r.type,
+                                content: JSON.stringify(r)
+                            }))
+                        }
+                    }
+                });
+                // Emit Completion
+                socketServer_1.socketServer.emitToReview(review.id, 'analysis:complete', {
+                    reviewId: review.id,
+                    score: avgScore,
+                    summary,
+                    results: agentResults
+                });
+            }
+            catch (err) {
+                console.error("Async Analysis Failed:", err);
+                socketServer_1.socketServer.emitToReview(review.id, 'analysis:error', { message: 'Internal Engine Failure' });
+                yield prisma.review.update({ where: { id: review.id }, data: { status: 'FAILED' } });
+            }
+        }))();
     }
     catch (error) {
-        console.error('Error queuing review:', error);
-        res.status(500).json({ error: 'Failed to queue review' });
+        console.error('Error processing review request:', error);
+        res.status(500).json({ error: 'Failed to initiate review' });
     }
 });
 exports.reviewCode = reviewCode;

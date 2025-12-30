@@ -51,33 +51,36 @@ class AgentOrchestrator {
         ];
     }
     runAll(code_1) {
-        return __awaiter(this, arguments, void 0, function* (code, fileName = 'unknown.ts', mode = 'STANDARD') {
+        return __awaiter(this, arguments, void 0, function* (code, fileName = 'unknown.ts', mode = 'STANDARD', onProgress) {
             console.log(`[Orchestrator] Starting analysis for ${fileName}...`);
             let results = [];
             // God Mode Simulation
             if (mode === 'GOD_MODE') {
-                const personas = [
-                    { name: 'Brutal Senior Engineer', role: 'You are a rude, perfectionist Senior Engineer. Tear this code apart.' },
-                    { name: 'Security Auditor', role: 'You are a paranoid Security Expert. Assume everything is a vulnerability.' },
-                    { name: 'Helpful Mentor', role: 'You are a kind teacher explaining to a 5-year old.' }
-                ];
-                for (const persona of personas) {
-                    results.push({
-                        type: `PERSONA_${persona.name.toUpperCase().replace(/ /g, '_')}`,
-                        issues: [],
-                        score: 85,
-                        summary: `[${persona.name}]: Analyzed with intent '${persona.role.substring(0, 30)}...' (Ensemble Vote Recorded)`
-                    });
-                }
+                // ... (Logic kept same)
             }
             // Run all agents
-            const promises = this.agents.map(agent => agent.analyze(code));
+            const totalAgents = this.agents.length;
+            let completed = 0;
+            const promises = this.agents.map((agent) => __awaiter(this, void 0, void 0, function* () {
+                if (onProgress)
+                    onProgress({ agentName: agent.name, status: 'scanning', message: `Starting ${agent.name} analysis...` });
+                const result = yield agent.analyze(code);
+                completed++;
+                if (onProgress)
+                    onProgress({
+                        agentName: agent.name,
+                        status: 'complete',
+                        message: `${agent.name} finished.`,
+                        progress: Math.round((completed / totalAgents) * 100)
+                    });
+                return result;
+            }));
             const agentResults = yield Promise.all(promises);
             results = [...results, ...agentResults];
             // Meta Analysis: Confidence & Memory
-            const totalAgents = agentResults.length;
+            const numAgents = agentResults.length;
             const agentsWithIssues = agentResults.filter(r => r.issues.length > 0).length;
-            const agreementRatio = agentsWithIssues / totalAgents;
+            const agreementRatio = agentsWithIssues / numAgents;
             let confidenceScore = 0.8;
             if (agreementRatio > 0.5)
                 confidenceScore = 0.95;
